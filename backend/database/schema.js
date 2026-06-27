@@ -4,7 +4,11 @@ const bcrypt = require('bcryptjs')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_SERVICE_KEY,
+  {
+    auth: { persistSession: false, autoRefreshToken: false },
+    realtime: { enabled: false }
+  }
 )
 
 async function initDB() {
