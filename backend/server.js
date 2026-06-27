@@ -26,7 +26,7 @@ initDB().then(() => {
   app.use('/api/stats', require('./routes/stats'))
   app.use('/api/banners', require('./routes/banners'))
 
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 HoneyGirl Backend en http://localhost:${PORT}`)
     console.log(`📁 Imágenes en http://localhost:${PORT}/uploads/`)
     console.log(`\n💡 Acceso admin: haz clic 5 veces en el logo\n`)
