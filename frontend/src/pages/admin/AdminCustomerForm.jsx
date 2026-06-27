@@ -3,6 +3,17 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ChevronLeft, Save, Loader } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCustomer, createCustomer, updateCustomer } from '../../api'
+
+const input = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white transition-colors"
+const sel = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white appearance-none"
+const F = ({ label, children, required }) => (
+  <div>
+    <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
+      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+    {children}
+  </div>
+)
 import toast from 'react-hot-toast'
 
 const empty = { first_name: '', last_name: '', company: '', city: '', country: 'Colombia', phone: '', email: '', username: '', password: '', status: 'active', customer_type: 'retail' }
@@ -43,17 +54,6 @@ export default function AdminCustomerForm() {
       toast.error(err.response?.data?.error || 'Error al guardar')
     } finally { setSaving(false) }
   }
-
-  const input = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white transition-colors"
-  const sel = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white appearance-none"
-  const F = ({ label, children, required }) => (
-    <div>
-      <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      {children}
-    </div>
-  )
 
   return (
     <div className="max-w-2xl">
