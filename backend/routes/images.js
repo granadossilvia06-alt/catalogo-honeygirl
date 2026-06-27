@@ -4,7 +4,7 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const { v4: uuidv4 } = require('uuid')
-const { getDB } = require('../database/schema')
+const { supabase } = require('../database/schema')
 const { adminMiddleware } = require('../middleware/auth')
 
 const UPLOADS_DIR = path.join(__dirname, '../uploads')
@@ -27,50 +27,75 @@ const upload = multer({
   }
 })
 
-router.post('/upload/:productId', adminMiddleware, upload.array('images', 10), (req, res) => {
-  const db = getDB()
-  const productId = req.params.productId
-  const existingCount = db.get('SELECT COUNT(*) as c FROM product_images WHERE product_id = ?', [productId])?.c || 0
+router.post('/upload/:productId', adminMiddleware, upload.array('images', 10), async (req, res) => {
+  const productId = parseInt(req.params.productId)
+  const { count } = await supabase
+    .from('product_images')
+    .select('*', { count: 'exact', head: true })
+    .eq('product_id', productId)
+
+  const existingCount = count || 0
   const inserted = []
-  req.files.forEach((file, idx) => {
-    const isPrimary = existingCount === 0 && idx === 0 ? 1 : 0
+
+  for (let idx = 0; idx < req.files.length; idx++) {
+    const file = req.files[idx]
+    const isPrimary = existingCount === 0 && idx === 0
     const sortOrder = existingCount + idx
-    const result = db.run('INSERT INTO product_images (product_id,filename,is_primary,sort_order) VALUES (?,?,?,?)', [productId, file.filename, isPrimary, sortOrder])
-    inserted.push({ id: result.lastInsertRowid, filename: file.filename, is_primary: isPrimary, sort_order: sortOrder })
-  })
+    const { data } = await supabase.from('product_images').insert({
+      product_id: productId,
+      filename: file.filename,
+      is_primary: isPrimary,
+      sort_order: sortOrder
+    }).select('id').single()
+    inserted.push({ id: data?.id, filename: file.filename, is_primary: isPrimary, sort_order: sortOrder })
+  }
+
   res.json({ uploaded: inserted })
 })
 
-router.get('/:productId', (req, res) => {
-  const db = getDB()
-  res.json(db.all('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order', [req.params.productId]))
+router.get('/:productId', async (req, res) => {
+  const { data } = await supabase
+    .from('product_images')
+    .select('*')
+    .eq('product_id', req.params.productId)
+    .order('sort_order')
+  res.json(data || [])
 })
 
-router.put('/:productId/primary/:imageId', adminMiddleware, (req, res) => {
-  const db = getDB()
-  db.run('UPDATE product_images SET is_primary = 0 WHERE product_id = ?', [req.params.productId])
-  db.run('UPDATE product_images SET is_primary = 1 WHERE id = ? AND product_id = ?', [req.params.imageId, req.params.productId])
+router.put('/:productId/primary/:imageId', adminMiddleware, async (req, res) => {
+  await supabase.from('product_images').update({ is_primary: false }).eq('product_id', req.params.productId)
+  await supabase.from('product_images').update({ is_primary: true }).eq('id', req.params.imageId).eq('product_id', req.params.productId)
   res.json({ message: 'Imagen principal actualizada' })
 })
 
-router.put('/:productId/reorder', adminMiddleware, (req, res) => {
-  const db = getDB()
+router.put('/:productId/reorder', adminMiddleware, async (req, res) => {
   const { order } = req.body
-  order.forEach((id, idx) => db.run('UPDATE product_images SET sort_order = ? WHERE id = ?', [idx, id]))
+  await Promise.all(order.map((id, idx) =>
+    supabase.from('product_images').update({ sort_order: idx }).eq('id', id)
+  ))
   res.json({ message: 'Orden actualizado' })
 })
 
-router.delete('/:imageId', adminMiddleware, (req, res) => {
-  const db = getDB()
-  const img = db.get('SELECT * FROM product_images WHERE id = ?', [req.params.imageId])
+router.delete('/:imageId', adminMiddleware, async (req, res) => {
+  const { data: img } = await supabase.from('product_images').select('*').eq('id', req.params.imageId).single()
   if (!img) return res.status(404).json({ error: 'Imagen no encontrada' })
+
   const filePath = path.join(UPLOADS_DIR, img.filename)
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-  db.run('DELETE FROM product_images WHERE id = ?', [req.params.imageId])
+
+  await supabase.from('product_images').delete().eq('id', req.params.imageId)
+
   if (img.is_primary) {
-    const next = db.get('SELECT id FROM product_images WHERE product_id = ? ORDER BY sort_order LIMIT 1', [img.product_id])
-    if (next) db.run('UPDATE product_images SET is_primary = 1 WHERE id = ?', [next.id])
+    const { data: next } = await supabase
+      .from('product_images')
+      .select('id')
+      .eq('product_id', img.product_id)
+      .order('sort_order')
+      .limit(1)
+      .single()
+    if (next) await supabase.from('product_images').update({ is_primary: true }).eq('id', next.id)
   }
+
   res.json({ message: 'Imagen eliminada' })
 })
 

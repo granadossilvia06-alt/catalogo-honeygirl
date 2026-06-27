@@ -1,71 +1,78 @@
 const express = require('express')
 const router = express.Router()
 const bcrypt = require('bcryptjs')
-const { getDB } = require('../database/schema')
+const { supabase } = require('../database/schema')
 const { adminMiddleware } = require('../middleware/auth')
 
-router.get('/', adminMiddleware, (req, res) => {
-  const db = getDB()
+router.get('/', adminMiddleware, async (req, res) => {
   const { search, status, type } = req.query
-  let conditions = []
-  let params = []
+
+  let query = supabase
+    .from('customers')
+    .select('id,first_name,last_name,company,city,country,phone,email,username,status,customer_type,created_at,last_login')
+    .order('created_at', { ascending: false })
+
+  if (status) query = query.eq('status', status)
+  if (type) query = query.eq('customer_type', type)
   if (search) {
-    conditions.push('(first_name LIKE ? OR last_name LIKE ? OR username LIKE ? OR email LIKE ? OR company LIKE ?)')
-    const s = `%${search}%`
-    params.push(s, s, s, s, s)
+    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,username.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`)
   }
-  if (status) { conditions.push('status = ?'); params.push(status) }
-  if (type) { conditions.push('customer_type = ?'); params.push(type) }
-  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''
-  res.json(db.all(`SELECT id,first_name,last_name,company,city,country,phone,email,username,status,customer_type,created_at,last_login FROM customers ${where} ORDER BY created_at DESC`, params))
+
+  const { data, error } = await query
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data || [])
 })
 
-router.get('/:id', adminMiddleware, (req, res) => {
-  const db = getDB()
-  const c = db.get('SELECT id,first_name,last_name,company,city,country,phone,email,username,status,customer_type,created_at,last_login FROM customers WHERE id=?', [req.params.id])
-  if (!c) return res.status(404).json({ error: 'Cliente no encontrado' })
-  res.json(c)
+router.get('/:id', adminMiddleware, async (req, res) => {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id,first_name,last_name,company,city,country,phone,email,username,status,customer_type,created_at,last_login')
+    .eq('id', req.params.id)
+    .single()
+  if (error || !data) return res.status(404).json({ error: 'Cliente no encontrado' })
+  res.json(data)
 })
 
-router.post('/', adminMiddleware, (req, res) => {
-  const db = getDB()
+router.post('/', adminMiddleware, async (req, res) => {
   const { first_name, last_name, company, city, country, phone, email, username, password, status, customer_type } = req.body
   if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña son requeridos' })
-  try {
-    const hash = bcrypt.hashSync(String(password), 10)
-    const result = db.run(
-      'INSERT INTO customers (first_name,last_name,company,city,country,phone,email,username,password,status,customer_type) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [first_name, last_name, company, city, country||'Colombia', phone, email, username, hash, status||'active', customer_type||'retail']
-    )
-    res.json({ id: result.lastInsertRowid, message: 'Cliente creado exitosamente' })
-  } catch (err) {
-    if (err.message.includes('UNIQUE')) res.status(400).json({ error: 'El usuario o correo ya existe' })
-    else res.status(500).json({ error: err.message })
+
+  const hash = bcrypt.hashSync(String(password), 10)
+  const { data, error } = await supabase.from('customers').insert({
+    first_name, last_name, company, city,
+    country: country || 'Colombia',
+    phone, email, username, password: hash,
+    status: status || 'active',
+    customer_type: customer_type || 'retail'
+  }).select('id').single()
+
+  if (error) {
+    if (error.code === '23505') return res.status(400).json({ error: 'El usuario o correo ya existe' })
+    return res.status(500).json({ error: error.message })
   }
+  res.json({ id: data.id, message: 'Cliente creado exitosamente' })
 })
 
-router.put('/:id', adminMiddleware, (req, res) => {
-  const db = getDB()
+router.put('/:id', adminMiddleware, async (req, res) => {
   const { first_name, last_name, company, city, country, phone, email, username, password, status, customer_type } = req.body
-  if (password) {
-    const hash = bcrypt.hashSync(String(password), 10)
-    db.run('UPDATE customers SET password=? WHERE id=?', [hash, req.params.id])
-  }
-  db.run('UPDATE customers SET first_name=?,last_name=?,company=?,city=?,country=?,phone=?,email=?,username=?,status=?,customer_type=? WHERE id=?',
-    [first_name, last_name, company, city, country, phone, email, username, status, customer_type, req.params.id])
+
+  const updates = { first_name, last_name, company, city, country, phone, email, username, status, customer_type }
+  if (password) updates.password = bcrypt.hashSync(String(password), 10)
+
+  const { error } = await supabase.from('customers').update(updates).eq('id', req.params.id)
+  if (error) return res.status(500).json({ error: error.message })
   res.json({ message: 'Cliente actualizado' })
 })
 
-router.patch('/:id/status', adminMiddleware, (req, res) => {
-  const db = getDB()
-  db.run('UPDATE customers SET status=? WHERE id=?', [req.body.status, req.params.id])
+router.patch('/:id/status', adminMiddleware, async (req, res) => {
+  const { error } = await supabase.from('customers').update({ status: req.body.status }).eq('id', req.params.id)
+  if (error) return res.status(500).json({ error: error.message })
   res.json({ message: 'Estado actualizado' })
 })
 
-router.delete('/:id', adminMiddleware, (req, res) => {
-  const db = getDB()
-  db.run('DELETE FROM favorites WHERE customer_id=?', [req.params.id])
-  db.run('DELETE FROM customers WHERE id=?', [req.params.id])
+router.delete('/:id', adminMiddleware, async (req, res) => {
+  await supabase.from('favorites').delete().eq('customer_id', req.params.id)
+  await supabase.from('customers').delete().eq('id', req.params.id)
   res.json({ message: 'Cliente eliminado' })
 })
 

@@ -1,130 +1,156 @@
 const express = require('express')
 const router = express.Router()
-const { getDB } = require('../database/schema')
+const { supabase } = require('../database/schema')
 const { adminMiddleware, optionalAuth } = require('../middleware/auth')
 
-router.get('/', optionalAuth, (req, res) => {
-  const db = getDB()
+router.get('/', optionalAuth, async (req, res) => {
   const { category, gender, color, size, status, featured, search, sort, page = 1, limit = 24 } = req.query
-
-  let conditions = []
-  let params = []
-
-  if (category) { conditions.push('p.category = ?'); params.push(category) }
-  if (gender) { conditions.push('p.gender = ?'); params.push(gender) }
-  if (color) { conditions.push('p.colors LIKE ?'); params.push(`%${color}%`) }
-  if (size) { conditions.push('p.sizes LIKE ?'); params.push(`%${size}%`) }
-  if (status) { conditions.push('p.status = ?'); params.push(status) }
-  if (featured === 'true') { conditions.push('p.featured = 1') }
-  if (req.query.new === 'true') { conditions.push('p.new_arrival = 1') }
-  if (search) {
-    conditions.push('(p.name LIKE ? OR p.code LIKE ? OR p.category LIKE ? OR p.tags LIKE ?)')
-    const s = `%${search}%`
-    params.push(s, s, s, s)
-  }
-
-  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''
-
-  const sortMap = {
-    newest: 'p.created_at DESC',
-    oldest: 'p.created_at ASC',
-    price_asc: 'p.price_unit ASC',
-    price_desc: 'p.price_unit DESC',
-    name_asc: 'p.name ASC',
-    views: 'p.views DESC',
-  }
-  const orderBy = sortMap[sort] || 'p.featured DESC, p.created_at DESC'
 
   const pageNum = parseInt(page)
   const limitNum = parseInt(limit)
   const offset = (pageNum - 1) * limitNum
 
-  const countSql = `SELECT COUNT(DISTINCT p.id) as total FROM products p ${where}`
-  const total = db.get(countSql, params)?.total || 0
+  let query = supabase
+    .from('products')
+    .select('*, product_images(filename, is_primary, sort_order)', { count: 'exact' })
 
-  const sql = `
-    SELECT p.*,
-      (SELECT GROUP_CONCAT(pi.filename) FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order) as image_list
-    FROM products p ${where}
-    GROUP BY p.id
-    ORDER BY ${orderBy}
-    LIMIT ? OFFSET ?
-  `
+  if (category) query = query.eq('category', category)
+  if (gender) query = query.eq('gender', gender)
+  if (status) query = query.eq('status', status)
+  if (featured === 'true') query = query.eq('featured', true)
+  if (req.query.new === 'true') query = query.eq('new_arrival', true)
+  if (size) query = query.contains('sizes', [size])
+  if (color) query = query.contains('colors', [color])
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,category.ilike.%${search}%`)
+  }
 
-  const products = db.all(sql, [...params, limitNum, offset]).map(p => formatProduct(p, req.user))
-  res.json({ products, total, page: pageNum, pages: Math.ceil(total / limitNum) })
-})
+  const sortMap = {
+    newest: { column: 'created_at', ascending: false },
+    oldest: { column: 'created_at', ascending: true },
+    price_asc: { column: 'price_unit', ascending: true },
+    price_desc: { column: 'price_unit', ascending: false },
+    name_asc: { column: 'name', ascending: true },
+    views: { column: 'views', ascending: false },
+  }
 
-router.get('/:id', optionalAuth, (req, res) => {
-  const db = getDB()
-  const product = db.get('SELECT * FROM products WHERE id = ?', [req.params.id])
-  if (!product) return res.status(404).json({ error: 'Producto no encontrado' })
+  if (sort && sortMap[sort]) {
+    query = query.order(sortMap[sort].column, { ascending: sortMap[sort].ascending })
+  } else {
+    query = query.order('featured', { ascending: false }).order('created_at', { ascending: false })
+  }
 
-  const images = db.all('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order', [product.id])
-  db.run('UPDATE products SET views = views + 1 WHERE id = ?', [product.id])
+  query = query.range(offset, offset + limitNum - 1)
 
-  const related = db.all(`
-    SELECT p.*, (SELECT pi.filename FROM product_images pi WHERE pi.product_id = p.id AND pi.is_primary = 1 LIMIT 1) as primary_image
-    FROM products p WHERE p.category = ? AND p.id != ? AND p.status = 'available' LIMIT 4
-  `, [product.category, product.id])
+  const { data: products, count, error } = await query
+  if (error) return res.status(500).json({ error: error.message })
 
   res.json({
-    ...formatProduct({ ...product, image_list: images.map(i => i.filename).join(',') }, req.user),
-    images,
-    related: related.map(r => formatProduct(r, req.user))
+    products: (products || []).map(p => formatProduct(p, req.user)),
+    total: count || 0,
+    page: pageNum,
+    pages: Math.ceil((count || 0) / limitNum)
   })
 })
 
-router.post('/', adminMiddleware, (req, res) => {
-  const db = getDB()
-  const { name, code, category, gender, description, material, price_unit, price_wholesale, stock, status, featured, new_arrival, on_sale, sale_percentage, tags, sizes, colors } = req.body
-  try {
-    const result = db.run(`
-      INSERT INTO products (name,code,category,gender,description,material,price_unit,price_wholesale,stock,status,featured,new_arrival,on_sale,sale_percentage,tags,sizes,colors)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `, [name, code, category, gender, description, material, price_unit||0, price_wholesale||0, stock||0, status||'available', featured?1:0, new_arrival!==false?1:0, on_sale?1:0, sale_percentage||0, JSON.stringify(tags||[]), JSON.stringify(sizes||[]), JSON.stringify(colors||[])])
-    res.json({ id: result.lastInsertRowid, message: 'Producto creado exitosamente' })
-  } catch (err) {
-    if (err.message.includes('UNIQUE')) res.status(400).json({ error: 'Ya existe un producto con ese código' })
-    else res.status(500).json({ error: err.message })
-  }
+router.get('/:id', optionalAuth, async (req, res) => {
+  const { data: product, error } = await supabase
+    .from('products')
+    .select('*, product_images(id, filename, is_primary, sort_order)')
+    .eq('id', req.params.id)
+    .single()
+
+  if (error || !product) return res.status(404).json({ error: 'Producto no encontrado' })
+
+  await supabase.from('products').update({ views: (product.views || 0) + 1 }).eq('id', product.id)
+
+  const { data: related } = await supabase
+    .from('products')
+    .select('*, product_images(filename, is_primary, sort_order)')
+    .eq('category', product.category)
+    .eq('status', 'available')
+    .neq('id', product.id)
+    .limit(4)
+
+  const images = (product.product_images || []).sort((a, b) => a.sort_order - b.sort_order)
+
+  res.json({
+    ...formatProduct(product, req.user),
+    images,
+    related: (related || []).map(r => formatProduct(r, req.user))
+  })
 })
 
-router.put('/:id', adminMiddleware, (req, res) => {
-  const db = getDB()
-  const { name, code, category, gender, description, material, price_unit, price_wholesale, stock, status, featured, new_arrival, on_sale, sale_percentage, tags, sizes, colors } = req.body
-  db.run(`
-    UPDATE products SET name=?,code=?,category=?,gender=?,description=?,material=?,price_unit=?,price_wholesale=?,stock=?,status=?,featured=?,new_arrival=?,on_sale=?,sale_percentage=?,tags=?,sizes=?,colors=?,updated_at=datetime('now')
-    WHERE id=?
-  `, [name, code, category, gender, description, material, price_unit, price_wholesale, stock, status, featured?1:0, new_arrival?1:0, on_sale?1:0, sale_percentage||0, JSON.stringify(tags||[]), JSON.stringify(sizes||[]), JSON.stringify(colors||[]), req.params.id])
+router.post('/', adminMiddleware, async (req, res) => {
+  const { name, code, category, gender, description, material, price_unit, price_wholesale,
+    stock, status, featured, new_arrival, on_sale, sale_percentage, tags, sizes, colors } = req.body
+
+  const { data, error } = await supabase.from('products').insert({
+    name, code, category, gender, description, material,
+    price_unit: price_unit || 0,
+    price_wholesale: price_wholesale || 0,
+    stock: stock || 0,
+    status: status || 'available',
+    featured: !!featured,
+    new_arrival: new_arrival !== false,
+    on_sale: !!on_sale,
+    sale_percentage: sale_percentage || 0,
+    tags: tags || [],
+    sizes: sizes || [],
+    colors: colors || []
+  }).select('id').single()
+
+  if (error) {
+    if (error.message.includes('unique') || error.code === '23505') {
+      return res.status(400).json({ error: 'Ya existe un producto con ese código' })
+    }
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ id: data.id, message: 'Producto creado exitosamente' })
+})
+
+router.put('/:id', adminMiddleware, async (req, res) => {
+  const { name, code, category, gender, description, material, price_unit, price_wholesale,
+    stock, status, featured, new_arrival, on_sale, sale_percentage, tags, sizes, colors } = req.body
+
+  const { error } = await supabase.from('products').update({
+    name, code, category, gender, description, material,
+    price_unit, price_wholesale, stock, status,
+    featured: !!featured,
+    new_arrival: !!new_arrival,
+    on_sale: !!on_sale,
+    sale_percentage: sale_percentage || 0,
+    tags: tags || [],
+    sizes: sizes || [],
+    colors: colors || [],
+    updated_at: new Date().toISOString()
+  }).eq('id', req.params.id)
+
+  if (error) return res.status(500).json({ error: error.message })
   res.json({ message: 'Producto actualizado' })
 })
 
-router.delete('/:id', adminMiddleware, (req, res) => {
-  const db = getDB()
-  db.run('DELETE FROM product_images WHERE product_id = ?', [req.params.id])
-  db.run('DELETE FROM favorites WHERE product_id = ?', [req.params.id])
-  db.run('DELETE FROM products WHERE id = ?', [req.params.id])
+router.delete('/:id', adminMiddleware, async (req, res) => {
+  await supabase.from('product_images').delete().eq('product_id', req.params.id)
+  await supabase.from('favorites').delete().eq('product_id', req.params.id)
+  await supabase.from('products').delete().eq('id', req.params.id)
   res.json({ message: 'Producto eliminado' })
 })
 
 function formatProduct(p, user) {
   const isWholesale = user && (user.role === 'admin' || user.type === 'wholesale')
+  const images = (p.product_images || []).sort((a, b) => a.sort_order - b.sort_order)
   return {
     ...p,
-    tags: safeJSON(p.tags, []),
-    sizes: safeJSON(p.sizes, []),
-    colors: safeJSON(p.colors, []),
-    featured: p.featured === 1 || p.featured === true,
-    new_arrival: p.new_arrival === 1 || p.new_arrival === true,
-    on_sale: p.on_sale === 1 || p.on_sale === true,
-    images: p.image_list ? p.image_list.split(',').filter(Boolean) : [],
+    product_images: undefined,
+    tags: Array.isArray(p.tags) ? p.tags : [],
+    sizes: Array.isArray(p.sizes) ? p.sizes : [],
+    colors: Array.isArray(p.colors) ? p.colors : [],
+    images: images.map(i => i.filename),
+    primary_image: images.find(i => i.is_primary)?.filename || images[0]?.filename || null,
     price_wholesale: isWholesale ? p.price_wholesale : undefined,
   }
-}
-
-function safeJSON(val, fallback) {
-  try { return JSON.parse(val) } catch { return fallback }
 }
 
 module.exports = router
