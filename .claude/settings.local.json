@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\backend\\\\routes\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\backend\\\\middleware\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\frontend\\\\src\\\\store\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\frontend\\\\src\\\\api\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\frontend\\\\src\\\\components\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\frontend\\\\src\\\\pages\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\frontend\\\\src\\\\pages\\\\admin\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\Usuario iTC\\\\Desktop\\\\Catalogo-HoneyGirl\\\\frontend\\\\src\\\\hooks\")",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3001/api/health\")",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(Get-Content \"$env:TEMP\\\\hg-fe.log\" | Select-Object -Last 20)"
+    ]
+  }
+}
