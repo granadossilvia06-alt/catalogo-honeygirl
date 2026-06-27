@@ -12,6 +12,7 @@ export default function Navbar() {
   const location = useLocation()
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const logoClickCount = useRef(0)
   const logoTimerRef = useRef(null)
 
@@ -92,27 +93,35 @@ export default function Navbar() {
             )}
 
             {isLoggedIn ? (
-              <div className="relative group">
-                <button className="flex items-center gap-1.5 text-sm font-medium text-stone-700 hover:text-stone-900 transition-colors">
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(o => !o)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-stone-700 hover:text-stone-900 transition-colors"
+                >
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style={{ background: '#7d1624' }}>
                     {(user?.first_name || user?.username || 'U')[0].toUpperCase()}
                   </div>
                   <ChevronDown size={14} />
                 </button>
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-stone-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <div className="px-4 py-2 border-b border-stone-100">
-                    <p className="text-xs text-stone-500">Conectado como</p>
-                    <p className="text-sm font-medium text-stone-800 truncate">{user?.username}</p>
-                  </div>
-                  {isAdmin && (
-                    <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
-                      <User size={14} /> Panel Admin
-                    </Link>
-                  )}
-                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                    <LogOut size={14} /> Cerrar sesión
-                  </button>
-                </div>
+                {userMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-stone-100 py-2 z-50">
+                      <div className="px-4 py-2 border-b border-stone-100">
+                        <p className="text-xs text-stone-500">Conectado como</p>
+                        <p className="text-sm font-medium text-stone-800 truncate">{user?.username}</p>
+                      </div>
+                      {isAdmin && (
+                        <Link to="/admin" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors">
+                          <User size={14} /> Panel Admin
+                        </Link>
+                      )}
+                      <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                        <LogOut size={14} /> Cerrar sesión
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <Link to="/login" className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full border border-stone-200 text-stone-700 hover:border-[#7d1624] hover:text-[#7d1624] transition-all">
