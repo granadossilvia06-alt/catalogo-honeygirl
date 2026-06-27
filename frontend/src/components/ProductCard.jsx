@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Heart, Tag, Star, Zap } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { addFavorite, removeFavorite } from '../api'
+import { imgUrl } from '../utils/imageUrl'
 import toast from 'react-hot-toast'
 
 export default function ProductCard({ product, onFavoriteChange }) {
@@ -13,7 +14,7 @@ export default function ProductCard({ product, onFavoriteChange }) {
   const isWholesale = user?.type === 'wholesale' || user?.role === 'admin'
 
   const primaryImage = product.images?.[0] || product.primary_image
-  const imgSrc = primaryImage ? `/uploads/${primaryImage}` : null
+  const imgSrc = imgUrl(primaryImage)
 
   const toggleFav = async (e) => {
     e.preventDefault()

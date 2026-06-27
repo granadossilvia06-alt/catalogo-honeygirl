@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import ProductCard from '../components/ProductCard'
 import { getProducts, getBanners } from '../api'
+import { imgUrl } from '../utils/imageUrl'
 
 export default function HomePage() {
   const [bannerIdx, setBannerIdx] = useState(0)
@@ -44,7 +45,7 @@ export default function HomePage() {
           {banners.map((b, i) => (
             <div key={b.id} className={`absolute inset-0 transition-opacity duration-700 ${i === bannerIdx ? 'opacity-100' : 'opacity-0'}`}>
               {b.image && (
-                <img src={`/uploads/${b.image}`} alt={b.title} className="w-full h-full object-cover" />
+                <img src={imgUrl(b.image)} alt={b.title} className="w-full h-full object-cover" />
               )}
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent flex items-center">
                 <div className="max-w-7xl mx-auto px-6 text-white">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Trash2, Eye, Package, Star, CheckCircle, XCircle } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getProducts, deleteProduct } from '../../api'
+import { imgUrl } from '../../utils/imageUrl'
 import toast from 'react-hot-toast'
 
 const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p)
@@ -91,7 +92,7 @@ export default function AdminProducts() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           {p.images?.[0] ? (
-                            <img src={`/uploads/${p.images[0]}`} alt="" className="w-11 h-11 rounded-xl object-cover shrink-0" />
+                            <img src={imgUrl(p.images[0])} alt="" className="w-11 h-11 rounded-xl object-cover shrink-0" />
                           ) : (
                             <div className="w-11 h-11 rounded-xl bg-stone-100 flex items-center justify-center shrink-0">
                               <Package size={16} className="text-stone-400" />

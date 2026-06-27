@@ -6,7 +6,10 @@ const { initDB } = require('./database/schema')
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors({ origin: '*', credentials: true }))
+app.use(cors({
+  origin: process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, 'http://localhost:3000'] : '*',
+  credentials: true
+}))
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))

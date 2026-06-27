@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { Plus, Trash2, Image, Loader } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getAllBanners, createBanner, deleteBanner } from '../../api'
+import { imgUrl } from '../../utils/imageUrl'
 import toast from 'react-hot-toast'
 
 export default function AdminBanners() {
@@ -80,7 +81,7 @@ export default function AdminBanners() {
             {banners.map(b => (
               <div key={b.id} className="flex items-center gap-4 p-4">
                 {b.image ? (
-                  <img src={`/uploads/${b.image}`} alt="" className="w-24 h-14 object-cover rounded-xl shrink-0" />
+                  <img src={imgUrl(b.image)} alt="" className="w-24 h-14 object-cover rounded-xl shrink-0" />
                 ) : (
                   <div className="w-24 h-14 bg-stone-100 rounded-xl flex items-center justify-center shrink-0">
                     <Image size={20} className="text-stone-400" />

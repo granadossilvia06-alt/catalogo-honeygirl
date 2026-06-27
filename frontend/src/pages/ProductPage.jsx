@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import ProductCard from '../components/ProductCard'
 import { getProduct, addFavorite, removeFavorite } from '../api'
+import { imgUrl } from '../utils/imageUrl'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 
@@ -43,7 +44,7 @@ export default function ProductPage() {
 
   const images = product.images || []
   const currentImg = images[selectedImg]
-  const imgSrc = currentImg ? `/uploads/${currentImg.filename || currentImg}` : null
+  const imgSrc = imgUrl(currentImg?.filename || currentImg)
 
   const formatPrice = (p) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p)
 
@@ -64,11 +65,7 @@ export default function ProductPage() {
     }
   }
 
-  const getImgSrc = (img) => {
-    if (!img) return null
-    if (typeof img === 'string') return `/uploads/${img}`
-    return `/uploads/${img.filename}`
-  }
+  const getImgSrc = (img) => imgUrl(img?.filename || img)
 
   return (
     <div className="min-h-screen bg-white">

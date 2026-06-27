@@ -2,30 +2,27 @@ const express = require('express')
 const router = express.Router()
 const multer = require('multer')
 const path = require('path')
-const fs = require('fs')
 const { v4: uuidv4 } = require('uuid')
 const { supabase } = require('../database/schema')
 const { adminMiddleware } = require('../middleware/auth')
 
-const UPLOADS_DIR = path.join(__dirname, '../uploads')
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true })
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase()
-    cb(null, `${uuidv4()}${ext}`)
-  }
-})
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (/jpeg|jpg|png|webp|gif/i.test(path.extname(file.originalname))) cb(null, true)
     else cb(new Error('Solo imágenes'))
   }
 })
+
+async function uploadToStorage(buffer, originalname, mimetype) {
+  const ext = path.extname(originalname).toLowerCase()
+  const filename = `${uuidv4()}${ext}`
+  const { error } = await supabase.storage.from('images').upload(filename, buffer, { contentType: mimetype })
+  if (error) throw new Error(error.message)
+  const { data } = supabase.storage.from('images').getPublicUrl(filename)
+  return { filename, publicUrl: data.publicUrl }
+}
 
 router.post('/upload/:productId', adminMiddleware, upload.array('images', 10), async (req, res) => {
   const productId = parseInt(req.params.productId)
@@ -41,13 +38,14 @@ router.post('/upload/:productId', adminMiddleware, upload.array('images', 10), a
     const file = req.files[idx]
     const isPrimary = existingCount === 0 && idx === 0
     const sortOrder = existingCount + idx
+    const { publicUrl } = await uploadToStorage(file.buffer, file.originalname, file.mimetype)
     const { data } = await supabase.from('product_images').insert({
       product_id: productId,
-      filename: file.filename,
+      filename: publicUrl,
       is_primary: isPrimary,
       sort_order: sortOrder
     }).select('id').single()
-    inserted.push({ id: data?.id, filename: file.filename, is_primary: isPrimary, sort_order: sortOrder })
+    inserted.push({ id: data?.id, filename: publicUrl, is_primary: isPrimary, sort_order: sortOrder })
   }
 
   res.json({ uploaded: inserted })
@@ -80,8 +78,9 @@ router.delete('/:imageId', adminMiddleware, async (req, res) => {
   const { data: img } = await supabase.from('product_images').select('*').eq('id', req.params.imageId).single()
   if (!img) return res.status(404).json({ error: 'Imagen no encontrada' })
 
-  const filePath = path.join(UPLOADS_DIR, img.filename)
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+  // Delete from Supabase Storage
+  const filename = img.filename.split('/').pop()
+  await supabase.storage.from('images').remove([filename])
 
   await supabase.from('product_images').delete().eq('id', req.params.imageId)
 

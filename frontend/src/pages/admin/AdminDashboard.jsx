@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Package, Users, Star, Zap, TrendingUp, Eye } from 'lucide-react'
 import { getStats } from '../../api'
 import { Link } from 'react-router-dom'
+import { imgUrl } from '../../utils/imageUrl'
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
               <Link to={`/admin/productos/editar/${p.id}`} key={p.id} className="flex items-center gap-3 hover:bg-stone-50 rounded-xl p-2 transition-colors">
                 <span className="w-6 h-6 rounded-full text-xs font-semibold flex items-center justify-center bg-stone-100 text-stone-500 shrink-0">{i + 1}</span>
                 {p.primary_image ? (
-                  <img src={`/uploads/${p.primary_image}`} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                  <img src={imgUrl(p.primary_image)} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                 ) : (
                   <div className="w-10 h-10 rounded-lg bg-stone-100 shrink-0 flex items-center justify-center">
                     <Package size={14} className="text-stone-400" />

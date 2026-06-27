@@ -85,7 +85,7 @@ export default function AdminSettings() {
             <li>Pégalo en un lugar seguro (USB, Google Drive, etc.)</li>
           </ol>
         </div>
-        <p className="text-xs text-stone-400 mt-3">Las imágenes están en: <code>backend/uploads/</code> — también puedes copiar esa carpeta.</p>
+        <p className="text-xs text-stone-400 mt-3">Las imágenes se guardan en Supabase Storage y la base de datos en Supabase — ambas están seguras en la nube.</p>
       </div>
 
       {/* Access hint */}

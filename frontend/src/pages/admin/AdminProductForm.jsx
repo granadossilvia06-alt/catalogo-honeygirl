@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ChevronLeft, Upload, X, GripVertical, Star, Save, Loader } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getProduct, createProduct, updateProduct, uploadImages, getProductImages, deleteImage, setPrimaryImage } from '../../api'
+import { imgUrl } from '../../utils/imageUrl'
 import toast from 'react-hot-toast'
 
 const CATEGORIES = ['Blusas', 'Vestidos', 'Pantalones', 'Faldas', 'Shorts', 'Chaquetas', 'Accesorios', 'Conjuntos', 'Ropa Interior', 'Otros']
@@ -314,7 +315,7 @@ export default function AdminProductForm() {
                   {images.map(img => (
                     <div key={img.id} className="flex items-center gap-3 p-2 rounded-xl bg-stone-50 group">
                       <GripVertical size={14} className="text-stone-300" />
-                      <img src={`/uploads/${img.filename}`} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                      <img src={imgUrl(img.filename)} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         {img.is_primary ? (
                           <span className="text-xs text-[#7d1624] font-medium flex items-center gap-1"><Star size={10} fill="currentColor" /> Principal</span>
