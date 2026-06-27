@@ -6,6 +6,18 @@ import { getProduct, createProduct, updateProduct, uploadImages, getProductImage
 import { imgUrl } from '../../utils/imageUrl'
 import toast from 'react-hot-toast'
 
+const F = ({ label, children, required }) => (
+  <div>
+    <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
+      {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    </label>
+    {children}
+  </div>
+)
+
+const input = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white transition-colors"
+const select = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white transition-colors appearance-none"
+
 const CATEGORIES = ['Blusas', 'Vestidos', 'Pantalones', 'Faldas', 'Shorts', 'Chaquetas', 'Accesorios', 'Conjuntos', 'Ropa Interior', 'Otros']
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '6', '8', '10', '12', '14', '16', 'Única']
 const COLORS_LIST = ['Negro', 'Blanco', 'Beige', 'Crema', 'Rojo', 'Rosa', 'Fucsia', 'Azul', 'Azul Marino', 'Verde', 'Amarillo', 'Morado', 'Naranja', 'Gris', 'Café', 'Dorado', 'Plateado']
@@ -135,18 +147,6 @@ export default function AdminProductForm() {
       refetchImages()
     } catch { toast.error('Error') }
   }
-
-  const F = ({ label, children, required }) => (
-    <div>
-      <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      {children}
-    </div>
-  )
-
-  const input = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white transition-colors"
-  const select = "w-full px-3 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-[#7d1624] bg-white transition-colors appearance-none"
 
   return (
     <div className="max-w-5xl">
