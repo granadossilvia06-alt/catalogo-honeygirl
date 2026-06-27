@@ -33,7 +33,8 @@ router.post('/login', async (req, res) => {
   res.json({
     token, role: 'customer', username: customer.username,
     first_name: customer.first_name, last_name: customer.last_name,
-    customer_type: customer.customer_type
+    customer_type: customer.customer_type,
+    type: customer.customer_type
   })
 })
 
