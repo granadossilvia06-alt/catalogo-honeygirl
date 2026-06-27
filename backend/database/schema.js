@@ -1,4 +1,5 @@
 require('dotenv').config()
+if (typeof WebSocket === 'undefined') global.WebSocket = require('ws')
 const { createClient } = require('@supabase/supabase-js')
 const bcrypt = require('bcryptjs')
 
